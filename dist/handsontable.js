@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * Version: 6.2.2
- * Release date: 19/12/2018 (built at 18/12/2018 14:40:17)
+ * Release date: 19/12/2018 (built at 14/08/2019 11:16:48)
  */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -12239,12 +12239,14 @@ function Core(rootElement, userSettings) {
                 }
               }
 
+              if (Array.isArray(value) && orgValue === null) orgValue = [];
+
               if (value !== null && _typeof(value) === 'object') {
                 if (orgValue === null || _typeof(orgValue) !== 'object') {
                   pushData = false;
                 } else {
-                  var orgValueSchema = (0, _object.duckSchema)(orgValue[0] || orgValue);
-                  var valueSchema = (0, _object.duckSchema)(value[0] || value);
+                  var orgValueSchema = (0, _object.duckSchema)(Array.isArray(orgValue) ? orgValue : orgValue[0] || orgValue);
+                  var valueSchema = (0, _object.duckSchema)(Array.isArray(orgValue) ? value : value[0] || value);
                   /* eslint-disable max-depth */
 
                   if ((0, _object.isObjectEqual)(orgValueSchema, valueSchema)) {
@@ -29734,7 +29736,7 @@ Handsontable.DefaultSettings = _defaultSettings.default;
 Handsontable.EventManager = _eventManager.default;
 Handsontable._getListenersCounter = _eventManager.getListenersCounter; // For MemoryLeak tests
 
-Handsontable.buildDate = "18/12/2018 14:40:17";
+Handsontable.buildDate = "14/08/2019 11:16:48";
 Handsontable.packageName = "handsontable";
 Handsontable.version = "6.2.2";
 var baseVersion = "";

@@ -768,13 +768,16 @@ export default function Core(rootElement, userSettings, rootInstanceSymbol = fal
                   value = isUndefined(result.value) ? value : result.value;
                 }
               }
+
+              if (Array.isArray(value) && orgValue === null) orgValue = [];
+
               if (value !== null && typeof value === 'object') {
                 if (orgValue === null || typeof orgValue !== 'object') {
                   pushData = false;
 
                 } else {
-                  const orgValueSchema = duckSchema(orgValue[0] || orgValue);
-                  const valueSchema = duckSchema(value[0] || value);
+                  const orgValueSchema = duckSchema(Array.isArray(orgValue) ? orgValue : orgValue[0] || orgValue);
+                  const valueSchema = duckSchema(Array.isArray(orgValue) ? value : value[0] || value);
 
                   /* eslint-disable max-depth */
                   if (isObjectEqual(orgValueSchema, valueSchema)) {
