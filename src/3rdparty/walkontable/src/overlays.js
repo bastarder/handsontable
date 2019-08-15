@@ -188,76 +188,45 @@ class Overlays {
     listenersToRegister.push([document.documentElement, 'keydown', event => this.onKeyDown(event)]);
     listenersToRegister.push([document.documentElement, 'keyup', () => this.onKeyUp()]);
     listenersToRegister.push([document, 'visibilitychange', () => this.onKeyUp()]);
-    listenersToRegister.push([topOverlayScrollable, 'scroll', event => this.onTableScroll(event)]);
+    listenersToRegister.push([topOverlayScrollable, 'scroll', event => this.onTableScroll(event), { passive: true }]);
 
     if (topOverlayScrollable !== leftOverlayScrollable) {
-      listenersToRegister.push([leftOverlayScrollable, 'scroll', event => this.onTableScroll(event)]);
+      listenersToRegister.push([leftOverlayScrollable, 'scroll', event => this.onTableScroll(event), { passive: true }]);
     }
 
     const isHighPixelRatio = window.devicePixelRatio && window.devicePixelRatio > 1;
+    const isScrollOnWindow = this.scrollableElement === window;
+    const preventWheel = this.wot.wtSettings.getSetting('preventWheel');
+    const wheelEventOptions = { passive: isScrollOnWindow };
 
-    if (isHighPixelRatio || !isChrome()) {
-      listenersToRegister.push([this.instance.wtTable.wtRootElement.parentNode, 'wheel', event => this.onCloneWheel(event)]);
+    if (preventWheel || isHighPixelRatio || !isChrome()) {
+      listenersToRegister.push([this.instance.wtTable.wtRootElement.parentNode, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
 
     } else {
       if (this.topOverlay.needFullRender) {
-        listenersToRegister.push([this.topOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event)]);
+        listenersToRegister.push([this.topOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
       }
 
       if (this.bottomOverlay.needFullRender) {
-        listenersToRegister.push([this.bottomOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event)]);
+        listenersToRegister.push([this.bottomOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
       }
 
       if (this.leftOverlay.needFullRender) {
-        listenersToRegister.push([this.leftOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event)]);
+        listenersToRegister.push([this.leftOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
       }
 
       if (this.topLeftCornerOverlay && this.topLeftCornerOverlay.needFullRender) {
-        listenersToRegister.push([this.topLeftCornerOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event)]);
+        listenersToRegister.push([this.topLeftCornerOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
       }
 
       if (this.bottomLeftCornerOverlay && this.bottomLeftCornerOverlay.needFullRender) {
-        listenersToRegister.push([this.bottomLeftCornerOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event)]);
+        listenersToRegister.push([this.bottomLeftCornerOverlay.clone.wtTable.holder, 'wheel', event => this.onCloneWheel(event, preventWheel), wheelEventOptions]);
       }
-    }
-
-    if (this.topOverlay.trimmingContainer !== window && this.leftOverlay.trimmingContainer !== window) {
-      // This is necessary?
-      // eventManager.addEventListener(window, 'scroll', (event) => this.refreshAll(event));
-      listenersToRegister.push([window, 'wheel', (event) => {
-        let overlay;
-        const deltaY = event.wheelDeltaY || event.deltaY;
-        const deltaX = event.wheelDeltaX || event.deltaX;
-
-        if (this.topOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-          overlay = 'top';
-
-        } else if (this.bottomOverlay.clone && this.bottomOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-          overlay = 'bottom';
-
-        } else if (this.leftOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-          overlay = 'left';
-
-        } else if (this.topLeftCornerOverlay && this.topLeftCornerOverlay.clone && this.topLeftCornerOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-          overlay = 'topLeft';
-
-        } else if (this.bottomLeftCornerOverlay && this.bottomLeftCornerOverlay.clone && this.bottomLeftCornerOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-          overlay = 'bottomLeft';
-        }
-
-        if ((overlay === 'top' && deltaY !== 0) ||
-          (overlay === 'left' && deltaX !== 0) ||
-          (overlay === 'bottom' && deltaY !== 0) ||
-          ((overlay === 'topLeft' || overlay === 'bottomLeft') && (deltaY !== 0 || deltaX !== 0))) {
-
-          event.preventDefault();
-        }
-      }]);
     }
 
     while (listenersToRegister.length) {
       const listener = listenersToRegister.pop();
-      this.eventManager.addEventListener(listener[0], listener[1], listener[2]);
+      this.eventManager.addEventListener(...listener);
 
       this.registeredListeners.push(listener);
     }
@@ -269,7 +238,7 @@ class Overlays {
   deregisterListeners() {
     while (this.registeredListeners.length) {
       const listener = this.registeredListeners.pop();
-      this.eventManager.removeEventListener(listener[0], listener[1], listener[2]);
+      this.eventManager.removeEventListener(...listener);
     }
   }
 

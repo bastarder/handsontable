@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * Version: 6.2.2
- * Release date: 19/12/2018 (built at 14/08/2019 11:16:48)
+ * Release date: 19/12/2018 (built at 15/08/2019 10:25:54)
  */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -2242,19 +2242,25 @@ function () {
     value: function addEventListener(element, eventName, callback) {
       var _this = this;
 
+      var options = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
       var context = this.context;
 
       function callbackProxy(event) {
         callback.call(this, extendEvent(context, event));
       }
 
+      if (typeof options !== 'boolean' && !(0, _feature.isPassiveEventSupported)()) {
+        options = false;
+      }
+
       this.context.eventListeners.push({
         element: element,
         event: eventName,
         callback: callback,
-        callbackProxy: callbackProxy
+        callbackProxy: callbackProxy,
+        options: options
       });
-      element.addEventListener(eventName, callbackProxy, false);
+      element.addEventListener(eventName, callbackProxy, options);
       listenersCounter += 1;
       return function () {
         _this.removeEventListener(element, eventName, callback);
@@ -2285,7 +2291,7 @@ function () {
           }
 
           this.context.eventListeners.splice(len, 1);
-          tmpEvent.element.removeEventListener(tmpEvent.event, tmpEvent.callbackProxy, false);
+          tmpEvent.element.removeEventListener(tmpEvent.event, tmpEvent.callbackProxy, tmpEvent.options);
           listenersCounter -= 1;
         }
       }
@@ -7352,6 +7358,7 @@ exports.isTouchSupported = isTouchSupported;
 exports.isWebComponentSupportedNatively = isWebComponentSupportedNatively;
 exports.hasCaptionProblem = hasCaptionProblem;
 exports.getComparisonFunction = getComparisonFunction;
+exports.isPassiveEventSupported = isPassiveEventSupported;
 
 function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
@@ -7484,6 +7491,36 @@ function getComparisonFunction(language) {
   }
 
   return comparisonFunction;
+}
+
+var passiveSupported;
+/**
+ * Checks if browser supports passive events.
+ *
+ * @returns {Boolean}
+ */
+
+function isPassiveEventSupported() {
+  if (passiveSupported !== void 0) {
+    return passiveSupported;
+  }
+
+  try {
+    var options = {
+      get passive() {
+        passiveSupported = true;
+      }
+
+    }; // eslint-disable-next-line no-restricted-globals
+
+    window.addEventListener('test', options, options); // eslint-disable-next-line no-restricted-globals
+
+    window.removeEventListener('test', options, options);
+  } catch (err) {
+    passiveSupported = false;
+  }
+
+  return passiveSupported;
 }
 
 /***/ }),
@@ -20139,6 +20176,14 @@ var _base = _interopRequireDefault(__webpack_require__(43));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -20340,81 +20385,68 @@ function () {
       }]);
       listenersToRegister.push([topOverlayScrollable, 'scroll', function (event) {
         return _this.onTableScroll(event);
+      }, {
+        passive: true
       }]);
 
       if (topOverlayScrollable !== leftOverlayScrollable) {
         listenersToRegister.push([leftOverlayScrollable, 'scroll', function (event) {
           return _this.onTableScroll(event);
+        }, {
+          passive: true
         }]);
       }
 
       var isHighPixelRatio = window.devicePixelRatio && window.devicePixelRatio > 1;
+      var isScrollOnWindow = this.scrollableElement === window;
+      var preventWheel = this.wot.wtSettings.getSetting('preventWheel');
+      var wheelEventOptions = {
+        passive: isScrollOnWindow
+      };
 
-      if (isHighPixelRatio || !(0, _browser.isChrome)()) {
+      if (preventWheel || isHighPixelRatio || !(0, _browser.isChrome)()) {
         listenersToRegister.push([this.instance.wtTable.wtRootElement.parentNode, 'wheel', function (event) {
-          return _this.onCloneWheel(event);
-        }]);
+          return _this.onCloneWheel(event, preventWheel);
+        }, wheelEventOptions]);
       } else {
         if (this.topOverlay.needFullRender) {
           listenersToRegister.push([this.topOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event);
-          }]);
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
         }
 
         if (this.bottomOverlay.needFullRender) {
           listenersToRegister.push([this.bottomOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event);
-          }]);
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
         }
 
         if (this.leftOverlay.needFullRender) {
           listenersToRegister.push([this.leftOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event);
-          }]);
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
         }
 
         if (this.topLeftCornerOverlay && this.topLeftCornerOverlay.needFullRender) {
           listenersToRegister.push([this.topLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event);
-          }]);
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
         }
 
         if (this.bottomLeftCornerOverlay && this.bottomLeftCornerOverlay.needFullRender) {
           listenersToRegister.push([this.bottomLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event);
-          }]);
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
         }
       }
 
-      if (this.topOverlay.trimmingContainer !== window && this.leftOverlay.trimmingContainer !== window) {
-        // This is necessary?
-        // eventManager.addEventListener(window, 'scroll', (event) => this.refreshAll(event));
-        listenersToRegister.push([window, 'wheel', function (event) {
-          var overlay;
-          var deltaY = event.wheelDeltaY || event.deltaY;
-          var deltaX = event.wheelDeltaX || event.deltaX;
-
-          if (_this.topOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-            overlay = 'top';
-          } else if (_this.bottomOverlay.clone && _this.bottomOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-            overlay = 'bottom';
-          } else if (_this.leftOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-            overlay = 'left';
-          } else if (_this.topLeftCornerOverlay && _this.topLeftCornerOverlay.clone && _this.topLeftCornerOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-            overlay = 'topLeft';
-          } else if (_this.bottomLeftCornerOverlay && _this.bottomLeftCornerOverlay.clone && _this.bottomLeftCornerOverlay.clone.wtTable.holder.contains(event.realTarget)) {
-            overlay = 'bottomLeft';
-          }
-
-          if (overlay === 'top' && deltaY !== 0 || overlay === 'left' && deltaX !== 0 || overlay === 'bottom' && deltaY !== 0 || (overlay === 'topLeft' || overlay === 'bottomLeft') && (deltaY !== 0 || deltaX !== 0)) {
-            event.preventDefault();
-          }
-        }]);
-      }
-
       while (listenersToRegister.length) {
+        var _this$eventManager;
+
         var listener = listenersToRegister.pop();
-        this.eventManager.addEventListener(listener[0], listener[1], listener[2]);
+
+        (_this$eventManager = this.eventManager).addEventListener.apply(_this$eventManager, _toConsumableArray(listener));
+
         this.registeredListeners.push(listener);
       }
     }
@@ -20426,8 +20458,11 @@ function () {
     key: "deregisterListeners",
     value: function deregisterListeners() {
       while (this.registeredListeners.length) {
+        var _this$eventManager2;
+
         var listener = this.registeredListeners.pop();
-        this.eventManager.removeEventListener(listener[0], listener[1], listener[2]);
+
+        (_this$eventManager2 = this.eventManager).removeEventListener.apply(_this$eventManager2, _toConsumableArray(listener));
       }
     }
     /**
@@ -29736,7 +29771,7 @@ Handsontable.DefaultSettings = _defaultSettings.default;
 Handsontable.EventManager = _eventManager.default;
 Handsontable._getListenersCounter = _eventManager.getListenersCounter; // For MemoryLeak tests
 
-Handsontable.buildDate = "14/08/2019 11:16:48";
+Handsontable.buildDate = "15/08/2019 10:25:54";
 Handsontable.packageName = "handsontable";
 Handsontable.version = "6.2.2";
 var baseVersion = "";
