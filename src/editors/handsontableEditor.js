@@ -48,7 +48,8 @@ HandsontableEditor.prototype.prepare = function(td, row, col, prop, value, cellP
         parent.setValue(sourceValue);
       }
       parent.instance.destroyEditor();
-    }
+    },
+    preventWheel: true,
   };
 
   if (this.cellProperties.handsontable) {

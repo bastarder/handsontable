@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * Version: 6.2.2
- * Release date: 19/12/2018 (built at 15/08/2019 10:25:54)
+ * Release date: 19/12/2018 (built at 07/09/2019 10:23:36)
  */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -20214,7 +20214,14 @@ function () {
     this.eventManager = new _eventManager.default(this.wot);
     this.wot.update('scrollbarWidth', (0, _element.getScrollbarWidth)());
     this.wot.update('scrollbarHeight', (0, _element.getScrollbarWidth)());
-    this.scrollableElement = (0, _element.getScrollableElement)(this.wot.wtTable.TABLE);
+    var wtTable = this.wot.wtTable;
+    var isOverflowHidden = window.getComputedStyle(wtTable.wtRootElement.parentNode).getPropertyValue('overflow') === 'hidden';
+    this.scrollableElement = isOverflowHidden ? wtTable.holder : (0, _element.getScrollableElement)(wtTable.TABLE);
+    this.topOverlay = void 0;
+    this.bottomOverlay = void 0;
+    this.leftOverlay = void 0;
+    this.topLeftCornerOverlay = void 0;
+    this.bottomLeftCornerOverlay = void 0;
     this.prepareOverlays();
     this.destroyed = false;
     this.keyPressed = false;
@@ -20222,42 +20229,8 @@ function () {
       width: null,
       height: null
     };
-    this.overlayScrollPositions = {
-      master: {
-        top: 0,
-        left: 0
-      },
-      top: {
-        top: null,
-        left: 0
-      },
-      bottom: {
-        top: null,
-        left: 0
-      },
-      left: {
-        top: 0,
-        left: null
-      }
-    };
-    this.pendingScrollCallbacks = {
-      master: {
-        top: 0,
-        left: 0
-      },
-      top: {
-        left: 0
-      },
-      bottom: {
-        left: 0
-      },
-      left: {
-        top: 0
-      }
-    };
     this.verticalScrolling = false;
     this.horizontalScrolling = false;
-    this.delegatedScrollCallback = false;
     this.registeredListeners = [];
     this.browserLineHeight = BODY_LINE_HEIGHT || FALLBACK_BODY_LINE_HEIGHT;
     this.registerListeners();
@@ -20399,46 +20372,27 @@ function () {
 
       var isHighPixelRatio = window.devicePixelRatio && window.devicePixelRatio > 1;
       var isScrollOnWindow = this.scrollableElement === window;
-      var preventWheel = this.wot.wtSettings.getSetting('preventWheel');
+      var preventWheel = this.wot.getSetting('preventWheel');
       var wheelEventOptions = {
         passive: isScrollOnWindow
       };
 
       if (preventWheel || isHighPixelRatio || !(0, _browser.isChrome)()) {
-        listenersToRegister.push([this.instance.wtTable.wtRootElement.parentNode, 'wheel', function (event) {
+        this.eventManager.addEventListener(this.wot.wtTable.wtRootElement, 'wheel', function (event) {
           return _this.onCloneWheel(event, preventWheel);
-        }, wheelEventOptions]);
-      } else {
-        if (this.topOverlay.needFullRender) {
-          listenersToRegister.push([this.topOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions]);
-        }
-
-        if (this.bottomOverlay.needFullRender) {
-          listenersToRegister.push([this.bottomOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions]);
-        }
-
-        if (this.leftOverlay.needFullRender) {
-          listenersToRegister.push([this.leftOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions]);
-        }
-
-        if (this.topLeftCornerOverlay && this.topLeftCornerOverlay.needFullRender) {
-          listenersToRegister.push([this.topLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions]);
-        }
-
-        if (this.bottomLeftCornerOverlay && this.bottomLeftCornerOverlay.needFullRender) {
-          listenersToRegister.push([this.bottomLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
-            return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions]);
-        }
+        }, wheelEventOptions);
       }
+
+      var overlays = [this.topOverlay, this.bottomOverlay, this.leftOverlay, this.topLeftCornerOverlay, this.bottomLeftCornerOverlay];
+      overlays.forEach(function (overlay) {
+        if (overlay && overlay.needFullRender) {
+          var holder = overlay.clone.wtTable.holder;
+
+          _this.eventManager.addEventListener(holder, 'wheel', function (event) {
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions);
+        }
+      });
 
       while (listenersToRegister.length) {
         var _this$eventManager;
@@ -20497,13 +20451,9 @@ function () {
 
   }, {
     key: "onCloneWheel",
-    value: function onCloneWheel(event) {
-      if (this.scrollableElement !== window) {
-        event.preventDefault();
-      } // There was if statement which controlled flow of this function. It avoided the execution of the next lines
+    value: function onCloneWheel(event, preventDefault) {
+      // There was if statement which controlled flow of this function. It avoided the execution of the next lines
       // on mobile devices. It was changed. Broader description of this case is included within issue #4856.
-
-
       var masterHorizontal = this.leftOverlay.mainTableScrollableElement;
       var masterVertical = this.topOverlay.mainTableScrollableElement;
       var target = event.target; // For key press, sync only master -> overlay position because while pressing Walkontable.render is triggered
@@ -20517,6 +20467,11 @@ function () {
       }
 
       this.translateMouseWheelToScroll(event);
+      var isScrollPossible = this.translateMouseWheelToScroll(event);
+
+      if (preventDefault || this.scrollableElement !== window && isScrollPossible) {
+        event.preventDefault();
+      }
     }
     /**
      * Key down listener
@@ -20555,27 +20510,23 @@ function () {
         deltaY += deltaY * this.browserLineHeight;
       }
 
-      this.scrollVertically(deltaY);
-      this.scrollHorizontally(deltaX);
-      return false;
+      var isScrollVerticallyPossible = this.scrollVertically(deltaY);
+      var isScrollHorizontallyPossible = this.scrollHorizontally(deltaX);
+      return isScrollVerticallyPossible || isScrollHorizontallyPossible;
     }
   }, {
     key: "scrollVertically",
     value: function scrollVertically(distance) {
-      if (distance === 0) {
-        return 0;
-      }
-
+      var previousScroll = this.scrollableElement.scrollTop;
       this.scrollableElement.scrollTop += distance;
+      return previousScroll !== this.scrollableElement.scrollTop;
     }
   }, {
     key: "scrollHorizontally",
     value: function scrollHorizontally(distance) {
-      if (distance === 0) {
-        return 0;
-      }
-
+      var previousScroll = this.scrollableElement.scrollLeft;
       this.scrollableElement.scrollLeft += distance;
+      return previousScroll !== this.scrollableElement.scrollLeft;
     }
     /**
      * Synchronize scroll position between master table and overlay table.
@@ -21173,6 +21124,7 @@ function () {
       preventOverflow: function preventOverflow() {
         return false;
       },
+      preventWheel: false,
       // data source
       data: void 0,
       freezeOverlays: false,
@@ -24685,7 +24637,8 @@ HandsontableEditor.prototype.prepare = function (td, row, col, prop, value, cell
       }
 
       parent.instance.destroyEditor();
-    }
+    },
+    preventWheel: true
   };
 
   if (this.cellProperties.handsontable) {
@@ -27758,6 +27711,20 @@ DefaultSettings.prototype = {
   preventOverflow: false,
 
   /**
+   * Prevents wheel event on overlays for doing default action.
+   *
+   * @private
+   * @type {Boolean}
+   * @default false
+   *
+   * @example
+   * ```js
+   * preventWheel: false,
+   * ```
+   */
+  preventWheel: false,
+
+  /**
    * @description
    * Enables the functionality of the {@link BindRowsWithHeaders} plugin which allows binding the table rows with their headers.
    * If the plugin is enabled, the table row headers will "stick" to the rows, when they are hidden/moved. Basically,
@@ -29771,7 +29738,7 @@ Handsontable.DefaultSettings = _defaultSettings.default;
 Handsontable.EventManager = _eventManager.default;
 Handsontable._getListenersCounter = _eventManager.getListenersCounter; // For MemoryLeak tests
 
-Handsontable.buildDate = "15/08/2019 10:25:54";
+Handsontable.buildDate = "07/09/2019 10:23:36";
 Handsontable.packageName = "handsontable";
 Handsontable.version = "6.2.2";
 var baseVersion = "";
@@ -35432,8 +35399,9 @@ function (_Overlay) {
       var overlayRoot = this.clone.wtTable.holder.parentNode;
       var headerPosition = 0;
       overlayRoot.style.top = '';
+      var preventOverflow = this.wot.getSetting('preventOverflow');
 
-      if (this.wot.wtOverlays.leftOverlay.trimmingContainer === window) {
+      if (this.trimmingContainer === window && (!preventOverflow || preventOverflow !== 'vertical')) {
         var box = this.wot.wtTable.hider.getBoundingClientRect();
         var bottom = Math.ceil(box.bottom);
         var finalLeft;
@@ -35460,6 +35428,7 @@ function (_Overlay) {
       }
 
       this.adjustHeaderBordersPosition(headerPosition);
+      this.adjustElementsSize();
     }
     /**
      * Sets the main overlay's vertical scroll position
@@ -35470,11 +35439,17 @@ function (_Overlay) {
   }, {
     key: "setScrollPosition",
     value: function setScrollPosition(pos) {
+      var result = false;
+
       if (this.mainTableScrollableElement === window) {
         window.scrollTo((0, _element.getWindowScrollLeft)(), pos);
-      } else {
+        result = true;
+      } else if (this.mainTableScrollableElement.scrollTop !== pos) {
         this.mainTableScrollableElement.scrollTop = pos;
+        result = true;
       }
+
+      return result;
     }
     /**
      * Triggers onScroll hook callback
@@ -35483,7 +35458,7 @@ function (_Overlay) {
   }, {
     key: "onScroll",
     value: function onScroll() {
-      this.wot.getSetting('onScrollVertically');
+      this.wot.getSetting('onScrollHorizontally');
     }
     /**
      * Calculates total sum cells height
@@ -40396,6 +40371,9 @@ function TableView(instance) {
     table: table,
     preventOverflow: function preventOverflow() {
       return _this.settings.preventOverflow;
+    },
+    preventWheel: function preventWheel() {
+      return _this.settings.preventWheel;
     },
     stretchH: function stretchH() {
       return that.settings.stretchH;

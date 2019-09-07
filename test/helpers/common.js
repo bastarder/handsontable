@@ -104,6 +104,17 @@ export const spliceRow = handsontableMethodFactory('spliceRow');
 export const updateSettings = handsontableMethodFactory('updateSettings');
 export const undo = handsontableMethodFactory('undo');
 
+/**
+ * Simulates WheelEvent on the element.
+ *
+ * @param {Element} elem Element to dispatch event.
+ * @param {Number} deltaX Relative distance in px to scroll horizontally.
+ * @param {Number} deltaY Relative distance in px to scroll vertically.
+ */
+export function wheelOnElement(elem, deltaX = 0, deltaY = 0) {
+  elem.dispatchEvent(new WheelEvent('wheel', { deltaX, deltaY }));
+}
+
 const specContext = {};
 
 beforeEach(function() {

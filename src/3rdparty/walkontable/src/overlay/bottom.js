@@ -59,8 +59,9 @@ class BottomOverlay extends Overlay {
     const overlayRoot = this.clone.wtTable.holder.parentNode;
     let headerPosition = 0;
     overlayRoot.style.top = '';
+    const preventOverflow = this.wot.getSetting('preventOverflow');
 
-    if (this.wot.wtOverlays.leftOverlay.trimmingContainer === window) {
+    if (this.trimmingContainer === window && (!preventOverflow || preventOverflow !== 'vertical')) {
       const box = this.wot.wtTable.hider.getBoundingClientRect();
       const bottom = Math.ceil(box.bottom);
       let finalLeft;
@@ -88,6 +89,7 @@ class BottomOverlay extends Overlay {
       this.repositionOverlay();
     }
     this.adjustHeaderBordersPosition(headerPosition);
+    this.adjustElementsSize();
   }
 
   /**
@@ -96,19 +98,22 @@ class BottomOverlay extends Overlay {
    * @param {Number} pos
    */
   setScrollPosition(pos) {
+    let result = false;
     if (this.mainTableScrollableElement === window) {
       window.scrollTo(getWindowScrollLeft(), pos);
-
-    } else {
+      result = true;
+    } else if (this.mainTableScrollableElement.scrollTop !== pos) {
       this.mainTableScrollableElement.scrollTop = pos;
+      result = true;
     }
+    return result;
   }
 
   /**
    * Triggers onScroll hook callback
    */
   onScroll() {
-    this.wot.getSetting('onScrollVertically');
+    this.wot.getSetting('onScrollHorizontally');
   }
 
   /**
