@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * Version: 6.2.2
- * Release date: 19/12/2018 (built at 07/09/2019 10:23:36)
+ * Release date: 19/12/2018 (built at 10/09/2019 10:56:27)
  */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -20214,14 +20214,7 @@ function () {
     this.eventManager = new _eventManager.default(this.wot);
     this.wot.update('scrollbarWidth', (0, _element.getScrollbarWidth)());
     this.wot.update('scrollbarHeight', (0, _element.getScrollbarWidth)());
-    var wtTable = this.wot.wtTable;
-    var isOverflowHidden = window.getComputedStyle(wtTable.wtRootElement.parentNode).getPropertyValue('overflow') === 'hidden';
-    this.scrollableElement = isOverflowHidden ? wtTable.holder : (0, _element.getScrollableElement)(wtTable.TABLE);
-    this.topOverlay = void 0;
-    this.bottomOverlay = void 0;
-    this.leftOverlay = void 0;
-    this.topLeftCornerOverlay = void 0;
-    this.bottomLeftCornerOverlay = void 0;
+    this.scrollableElement = (0, _element.getScrollableElement)(this.wot.wtTable.TABLE);
     this.prepareOverlays();
     this.destroyed = false;
     this.keyPressed = false;
@@ -20229,8 +20222,42 @@ function () {
       width: null,
       height: null
     };
+    this.overlayScrollPositions = {
+      master: {
+        top: 0,
+        left: 0
+      },
+      top: {
+        top: null,
+        left: 0
+      },
+      bottom: {
+        top: null,
+        left: 0
+      },
+      left: {
+        top: 0,
+        left: null
+      }
+    };
+    this.pendingScrollCallbacks = {
+      master: {
+        top: 0,
+        left: 0
+      },
+      top: {
+        left: 0
+      },
+      bottom: {
+        left: 0
+      },
+      left: {
+        top: 0
+      }
+    };
     this.verticalScrolling = false;
     this.horizontalScrolling = false;
+    this.delegatedScrollCallback = false;
     this.registeredListeners = [];
     this.browserLineHeight = BODY_LINE_HEIGHT || FALLBACK_BODY_LINE_HEIGHT;
     this.registerListeners();
@@ -20372,27 +20399,46 @@ function () {
 
       var isHighPixelRatio = window.devicePixelRatio && window.devicePixelRatio > 1;
       var isScrollOnWindow = this.scrollableElement === window;
-      var preventWheel = this.wot.getSetting('preventWheel');
+      var preventWheel = this.wot.wtSettings.getSetting('preventWheel');
       var wheelEventOptions = {
         passive: isScrollOnWindow
       };
 
       if (preventWheel || isHighPixelRatio || !(0, _browser.isChrome)()) {
-        this.eventManager.addEventListener(this.wot.wtTable.wtRootElement, 'wheel', function (event) {
+        listenersToRegister.push([this.instance.wtTable.wtRootElement.parentNode, 'wheel', function (event) {
           return _this.onCloneWheel(event, preventWheel);
-        }, wheelEventOptions);
-      }
-
-      var overlays = [this.topOverlay, this.bottomOverlay, this.leftOverlay, this.topLeftCornerOverlay, this.bottomLeftCornerOverlay];
-      overlays.forEach(function (overlay) {
-        if (overlay && overlay.needFullRender) {
-          var holder = overlay.clone.wtTable.holder;
-
-          _this.eventManager.addEventListener(holder, 'wheel', function (event) {
+        }, wheelEventOptions]);
+      } else {
+        if (this.topOverlay.needFullRender) {
+          listenersToRegister.push([this.topOverlay.clone.wtTable.holder, 'wheel', function (event) {
             return _this.onCloneWheel(event, preventWheel);
-          }, wheelEventOptions);
+          }, wheelEventOptions]);
         }
-      });
+
+        if (this.bottomOverlay.needFullRender) {
+          listenersToRegister.push([this.bottomOverlay.clone.wtTable.holder, 'wheel', function (event) {
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
+        }
+
+        if (this.leftOverlay.needFullRender) {
+          listenersToRegister.push([this.leftOverlay.clone.wtTable.holder, 'wheel', function (event) {
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
+        }
+
+        if (this.topLeftCornerOverlay && this.topLeftCornerOverlay.needFullRender) {
+          listenersToRegister.push([this.topLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
+        }
+
+        if (this.bottomLeftCornerOverlay && this.bottomLeftCornerOverlay.needFullRender) {
+          listenersToRegister.push([this.bottomLeftCornerOverlay.clone.wtTable.holder, 'wheel', function (event) {
+            return _this.onCloneWheel(event, preventWheel);
+          }, wheelEventOptions]);
+        }
+      }
 
       while (listenersToRegister.length) {
         var _this$eventManager;
@@ -20466,7 +20512,6 @@ function () {
         return;
       }
 
-      this.translateMouseWheelToScroll(event);
       var isScrollPossible = this.translateMouseWheelToScroll(event);
 
       if (preventDefault || this.scrollableElement !== window && isScrollPossible) {
@@ -20517,6 +20562,10 @@ function () {
   }, {
     key: "scrollVertically",
     value: function scrollVertically(distance) {
+      if (distance === 0) {
+        return 0;
+      }
+
       var previousScroll = this.scrollableElement.scrollTop;
       this.scrollableElement.scrollTop += distance;
       return previousScroll !== this.scrollableElement.scrollTop;
@@ -20524,6 +20573,10 @@ function () {
   }, {
     key: "scrollHorizontally",
     value: function scrollHorizontally(distance) {
+      if (distance === 0) {
+        return 0;
+      }
+
       var previousScroll = this.scrollableElement.scrollLeft;
       this.scrollableElement.scrollLeft += distance;
       return previousScroll !== this.scrollableElement.scrollLeft;
@@ -29738,7 +29791,7 @@ Handsontable.DefaultSettings = _defaultSettings.default;
 Handsontable.EventManager = _eventManager.default;
 Handsontable._getListenersCounter = _eventManager.getListenersCounter; // For MemoryLeak tests
 
-Handsontable.buildDate = "07/09/2019 10:23:36";
+Handsontable.buildDate = "10/09/2019 10:56:27";
 Handsontable.packageName = "handsontable";
 Handsontable.version = "6.2.2";
 var baseVersion = "";
