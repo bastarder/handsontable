@@ -1,172 +1,31 @@
-<div align="center">
-  <a href="//handsontable.com" target="_blank"><img src="https://raw.githubusercontent.com/handsontable/static-files/master/Images/Logo/Handsontable/Handsontable-logo-300-74-new.png" alt="Handsontable Community Edition logo" /></a>
-</div>
-
-<br/>
-
-[**Handsontable Community Edition (CE)**](//handsontable.com) is an open source JavaScript/HTML5 data grid component with spreadsheet look & feel. It easily integrates with any data source and comes with a variety of useful features like data binding, validation, sorting or powerful context menu. It is available for [Vue](//github.com/handsontable/vue-handsontable-official), [React](//github.com/handsontable/react-handsontable), [Angular](//github.com/handsontable/angular-handsontable) and [Polymer](//github.com/handsontable/hot-table).
-
-If you are looking for an extended version, try out [Handsontable Pro](//github.com/handsontable/handsontable-pro).
-
-[![Build status](https://travis-ci.org/handsontable/handsontable.png?branch=master)](//travis-ci.org/handsontable/handsontable)
-[![npm](https://img.shields.io/npm/dt/handsontable.svg)](//npmjs.com/package/handsontable)
-[![npm](https://img.shields.io/npm/dm/handsontable.svg)](//npmjs.com/package/handsontable)
-[![npm](https://img.shields.io/github/contributors/handsontable/handsontable.svg)](//github.com/handsontable/handsontable/graphs/contributors)
+# Handsontable 6.2.2
+> 组件基于 `Handsontable 6.2.2` 进行二次开发，修复一些已知的问题;
 
 
-----
+## 1. 原组件库官方文档
+[handsontable.com/docs/6.2.2](https://handsontable.com/docs/6.2.2/tutorial-quick-start.html)
 
-**We are looking for Contributors who would like to help us with translations. [Learn more](https://github.com/handsontable/handsontable/issues/4696)**
-<br/>
-Most wanted languages: Danish, Portuguese, Spanish and Swedish.
+## 2. 修改记录
 
----
+### 修复引用类型数据单元格无法AutoFill的问题
+> 问题原因：`src/core.js line:770` 附近相关代码，是判断 单元格新旧数据，是否需要发生变更的地方，在旧代码中仅仅取了 `orgValue[0] || orgValue`,而数组类型初始为空数组, 修改以后变为`['A']`则判断相同的参数就变成了 `orgValue[0]`即`A`，所以引用类型的判断有误，应该改为`['A']`数组本身来作为对比凭证。
 
-<br/>
+> 修复相关commit：`ac7c995c87230ebb3e34928d990fc737bde534dd`
+	
+> 涉及文件: `src/core.js`
 
-## Table of contents
 
-1. [What to use it for?](#what-to-use-it-for)
-1. [Installation](#installation)
-2. [Basic usage](#basic-usage)
-3. [Examples](#examples)
-4. [Features](#features)
-5. [Screenshot](#screenshot)
-6. [Resources](#resources)
-7. [Wrappers](#wrappers)
-8. [Support](#support)
-9. [Contributing](#contributing)
-10. [Community](#community)
-11. [License](#license)
+### 修复在fixColumn进行wheel的时候报错的问题
+> 问题原因：`Unable to preventDefault inside passive event listener due to target being treated as passive`, 这是因为在新浏览器中，对滑动有优化，简单来说，因为原有的滑动事件中当浏览器监听到滑动的时候 他不能立马开始滚动页面，因为他不知道 你会不会在哪里取消这个事件的默认操作，所以添加了一个参数，passive来断定，这个事件不会被取消默认操作，来优化滑动。但表格组件没有考虑这个属性的存在，所以在一些浏览器默认优化的情况，执行preventDefault，就会抛出异常，只要让表格组件 监听事件的方法支持第三个参数即可。
 
-<br/>
+> 修复相关commit：`d967c32c1fe982d469f337844e4d9e9a37e75bae`
 
-### What to use it for?
-The list below gives a rough idea on what you can do with Handsontable CE, but it shouldn't limit you in any way:
+> 涉及文件: `src/eventManager.js`,`src/3rdparty/walkontable/src/overlays.js`,`src/helpers/feature.js`, 其中`eventManager.js`就是封装的事件监听方法，让其支持第三个参数，然后在`overlays.js `发起监听的地方传递参数, `feature.js`中添加一个用于判断是否支持passive的兼容性判断方法。
 
-- Database editing
-- Configuration controlling
-- Data merging
-- Team scheduling
-- Sales reporting
-- Financial analysis
+### 修复表格的滚动事件无法冒泡到外层页面的问题
+> 问题原因：两种情况，但现象是一致的，当表格没有固定高度的时候，在表格上滚动，事件不会冒泡到外部，当表格有固定高度时，在表格上滚动，滚动到表格顶部后继续滚动，事件也无法冒泡到外部，导致无法触发页面的滚动，这样体检极差，所以解决方法是应该在表格无需滚动的时候，将事件传递出去，来防止无法滚动外部页面的问题。
 
-<br/>
+> 修复相关commit：`f3509a590e1e73b18f035af4b016400775c8d350`, `3fe591d41064553a8d4b10cd86d7ba344514e23f`
 
-### Installation
-There are many ways to install Handsontable CE, but we suggest using npm:
-```
-npm install handsontable
-```
+> 涉及文件: `test/helpers/common.js`, `src/editors/handsontableEditor.js`, `src/3rdparty/walkontable/src/overlay/bottom.js`, `src/3rdparty/walkontable/src/settings.js`, `src/3rdparty/walkontable/src/overlays.js`, `src/3rdparty/walkontable/css/walkontable.css`, `src/tableView.js`, `src/defaultSettings.js`, `handsontable.d.ts`
 
-**Alternative ways to install**
-- See the [download section](//handsontable.com/community-download) on how to install Handsontable CE using nuget, bower, yarn and more.
-
-<br/>
-
-### Basic usage
-Assuming that you have already installed Handsontable CE, create an empty `<div>` element that will be turned into a spreadsheet:
-
-```html
-<div id="example"></div>
-```
-In the next step, pass a reference to that `<div>` element into the Handsontable CE constructor and fill the instance with sample data:
-```javascript
-var data = [
-  ["", "Tesla", "Volvo", "Toyota", "Honda"],
-  ["2017", 10, 11, 12, 13],
-  ["2018", 20, 11, 14, 13],
-  ["2019", 30, 15, 12, 13]
-];
-
-var container = document.getElementById('example');
-var hot = new Handsontable(container, {
-  data: data,
-  rowHeaders: true,
-  colHeaders: true
-});
-```
-
-<br/>
-
-### Examples
-- [See a live demo](//handsontable.com/examples.html)
-
-<br/>
-
-### Features
-
-**Some of the most popular features include:**
-
-- Sorting data
-- Data validation
-- Conditional formatting
-- Freezing rows/columns
-- Merging cells
-- Defining custom cell types
-- Moving rows/columns
-- Resizing rows/columns
-- Context menu
-- Adding comments to cells
-- Dragging fill handle to populate data
-- Internationalization
-- Non-contiguous selection
-
-[See a comparison table](//handsontable.com/docs/tutorial-features.html)
-
-<br/>
-
-### Screenshot
-<div align="center">
-<a href="//handsontable.com/examples.html">
-<img src="https://raw.githubusercontent.com/handsontable/static-files/master/Images/Screenshots/handsontable-ce-showcase.png" align="center" alt="Handsontable Community Edition Screenshot"/>
-</a>
-</div>
-
-<br/>
-
-### Resources
-- [API Reference](//handsontable.com/docs/Core.html)
-- [Compatibility](//handsontable.com/docs/tutorial-compatibility.html)
-- [Change log](//github.com/handsontable/handsontable/releases)
-- [Roadmap](//trello.com/b/PztR4hpj)
-- [Newsroom](//twitter.com/handsontable)
-
-<br/>
-
-### Wrappers
-Handsontable CE comes with wrappers and directives for most popular frameworks:
-
-- [Angular](//github.com/handsontable/angular-handsontable)
-- [Angular 1](//github.com/handsontable/ngHandsontable)
-- [React](//github.com/handsontable/react-handsontable)
-- [Vue](//github.com/handsontable/vue-handsontable-official)
-- [Polymer](//github.com/handsontable/hot-table)
-- [Typescript file](//github.com/handsontable/handsontable/blob/master/handsontable.d.ts)
-
-<br/>
-
-### Support
-Report all the suggestions and problems on [GitHub Issues](//github.com/handsontable/handsontable/issues).
-
-An open source version doesn't include a commercial support. You need to purchase [Handsontable Pro](//github.com/handsontable/handsontable-pro) license or [contact us](//handsontable.com/contact.html) directly in order to obtain a technical support from the Handsoncode team.
-
-<br/>
-
-### Contributing
-If you would like to help us to develop Handsontable, please take a look at this [guide for contributing](//github.com/handsontable/handsontable/blob/master/CONTRIBUTING.md).
-
-<br/>
-
-### Community
-- [GitHub issues](//github.com/handsontable/handsontable/issues)
-- [Stackoverflow](//stackoverflow.com/tags/handsontable)
-- [Forum](//forum.handsontable.com)
-- [Twitter](//twitter.com/handsontable)
-
-<br/>
-
-### License
-Handsontable Community Edition is released under the MIT license. [Read license](//github.com/handsontable/handsontable/blob/master/LICENSE).
-
-Copyrights belong to Handsoncode sp. z o.o.
